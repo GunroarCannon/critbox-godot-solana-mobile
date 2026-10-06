@@ -47,7 +47,10 @@ func _run() -> void:
 		w.mock.next_error = code
 		r = await w.connect_wallet()
 		_expect(not r.ok and r.code == code, "failure '%s' reaches the caller" % code)
-	_expect(w.auth_token == "", "a declined session token is dropped")
+	_expect(w.auth_token == token, "a declined request keeps the session")
+	w.mock.next_error = "unauthorized"
+	r = await w.sign_messages(["x"])
+	_expect(not r.ok and r.code == "unauthorized" and w.auth_token == "", "an unauthorized session token is dropped")
 
 	# Busy: a second request while one is open fails at once.
 	w.mock.delay_sec = 0.3

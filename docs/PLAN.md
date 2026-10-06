@@ -89,7 +89,7 @@ plain strings and ints. Signals:
 Every successful result carries `auth_token`, `public_key` (base58),
 `account_label` and `wallet_uri_base`, so the client always holds the latest
 session. Error codes: `busy`, `cancelled`, `no_wallet`, `declined`
-(MWA -3 / -1), `not_submitted` (-4), `cluster_not_supported` (-7),
+(MWA -3), `unauthorized` (-1), `not_submitted` (-4), `cluster_not_supported` (-7),
 `too_many_payloads` (-6), `invalid_payloads` (-2), `timeout`, `error`.
 
 ### GDScript client (`SolanaMobileClient`)

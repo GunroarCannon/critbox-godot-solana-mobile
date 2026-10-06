@@ -73,7 +73,9 @@ object MwaResults {
     }
 
     fun codeFor(rpcCode: Int): String = when (rpcCode) {
-        ProtocolContract.ERROR_AUTHORIZATION_FAILED, ProtocolContract.ERROR_NOT_SIGNED -> "declined"
+        // -1: the wallet no longer honours this session; -3: the user said no to this one request.
+        ProtocolContract.ERROR_AUTHORIZATION_FAILED -> "unauthorized"
+        ProtocolContract.ERROR_NOT_SIGNED -> "declined"
         ProtocolContract.ERROR_NOT_SUBMITTED -> "not_submitted"
         ProtocolContract.ERROR_INVALID_PAYLOADS -> "invalid_payloads"
         ProtocolContract.ERROR_TOO_MANY_PAYLOADS -> "too_many_payloads"

@@ -25,10 +25,12 @@ class MwaBridgeActivity : ComponentActivity() {
     companion object {
         const val EXTRA_ID = "com.critbox.solanamobile.REQUEST_ID"
         private const val TAG = "SolanaMobile"
+        private const val RETURN_GRACE_MS = 1500L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var requestId = -1
+    private var leftForWallet = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +55,27 @@ class MwaBridgeActivity : ComponentActivity() {
             MwaBridge.complete(requestId, outcome)
             finishQuietly()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        leftForWallet = true
+    }
+
+    /**
+     * Back on this invisible screen with no answer means the user backed out of
+     * the chooser or the wallet. A finished session reports well inside the grace
+     * period; otherwise MWA would sit retrying its socket for many seconds.
+     */
+    override fun onResume() {
+        super.onResume()
+        if (!leftForWallet) return
+        window.decorView.postDelayed({
+            if (!isFinishing && MwaBridge.inFlight() == requestId) {
+                MwaBridge.complete(requestId, Outcome.failure("cancelled", "Left the wallet without answering"))
+                finishQuietly()
+            }
+        }, RETURN_GRACE_MS)
     }
 
     override fun onDestroy() {

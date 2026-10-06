@@ -13,7 +13,7 @@ extends RefCounted
 ## if r.ok:
 ##     print(wallet.public_key)
 ## [/codeblock]
-## Failure codes: busy, cancelled, no_wallet, declined, not_submitted, timeout,
+## Failure codes: busy, cancelled, no_wallet, declined, unauthorized, not_submitted, timeout,
 ## connection_failed, cluster_not_supported, too_many_payloads, invalid_payloads,
 ## invalid_request, rpc_error, error.
 
@@ -271,8 +271,9 @@ func _on_succeeded(id: int, json: String) -> void:
 
 func _on_failed(id: int, code: String, message: String) -> void:
 	# A wallet that no longer honours the saved session: drop it so the next
-	# connect asks afresh instead of failing forever.
-	if code == "declined" and auth_token != "":
+	# connect asks afresh instead of failing forever. A plain "declined" (the user
+	# said no to one request) keeps the session.
+	if code == "unauthorized" and auth_token != "":
 		auth_token = ""
 	_finish(id, _fail(code, message))
 

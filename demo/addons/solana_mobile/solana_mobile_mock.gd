@@ -3,7 +3,7 @@ extends RefCounted
 ## A pretend wallet with the same surface and results as the Android plugin,
 ## so wallet flows run in the editor, on desktop and in headless tests.
 ## Script it: set [member next_error] to make the next request fail with that
-## code ("cancelled", "declined", "no_wallet", "timeout"…), [member delay_sec]
+## code ("cancelled", "declined", "unauthorized", "no_wallet", "timeout"…), [member delay_sec]
 ## for the wallet's think time, [member wallet_installed] / [member device].
 
 signal request_succeeded(id: int, json: String)

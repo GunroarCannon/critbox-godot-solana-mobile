@@ -22,19 +22,32 @@ data class DappConfig(
  * `auth_token` when given (no approval prompt if the wallet still trusts it).
  */
 object MwaOps {
-    private fun adapter(config: DappConfig, authToken: String) = MobileWalletAdapter(
-        connectionIdentity = ConnectionIdentity(
-            identityUri = Uri.parse(config.identityUri),
-            iconUri = Uri.parse(config.iconUri),
-            identityName = config.identityName,
-        ),
-    ).apply {
-        blockchain = when (config.cluster) {
-            "devnet" -> Solana.Devnet
-            "testnet" -> Solana.Testnet
-            else -> Solana.Mainnet
+    private var cached: Pair<DappConfig, MobileWalletAdapter>? = null
+
+    /**
+     * One adapter per config, kept between requests: it remembers the wallet's
+     * `wallet_uri_base`, so after the first connect requests go straight to that
+     * wallet instead of showing Android's app chooser every time.
+     */
+    @Synchronized
+    private fun adapter(config: DappConfig, authToken: String): MobileWalletAdapter {
+        val hit = cached?.takeIf { it.first == config }?.second
+        val adapter = hit ?: MobileWalletAdapter(
+            connectionIdentity = ConnectionIdentity(
+                identityUri = Uri.parse(config.identityUri),
+                iconUri = Uri.parse(config.iconUri),
+                identityName = config.identityName,
+            ),
+        ).apply {
+            blockchain = when (config.cluster) {
+                "devnet" -> Solana.Devnet
+                "testnet" -> Solana.Testnet
+                else -> Solana.Mainnet
+            }
         }
-        this.authToken = authToken.ifEmpty { null }
+        cached = config to adapter
+        adapter.authToken = authToken.ifEmpty { null }
+        return adapter
     }
 
     private fun payloads(params: JSONObject, key: String): Array<ByteArray> {

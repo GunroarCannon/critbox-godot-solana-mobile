@@ -64,7 +64,8 @@ reconnects without asking for approval again.
 | `await rpc(method, params)`, `latest_blockhash()`, `balance()`, `token_balance(mint)` | JSON-RPC helpers on `rpc_url` |
 
 Every awaited call returns `{ok: true, …}` or `{ok: false, code, message}`. The codes are
-`busy`, `cancelled`, `no_wallet`, `declined`, `not_submitted`, `timeout`,
+`busy`, `cancelled`, `no_wallet`, `declined` (said no to this request), `unauthorized`
+(the saved session was revoked; the client forgets it), `not_submitted`, `timeout`,
 `connection_failed`, `cluster_not_supported`, `too_many_payloads`, `invalid_payloads`,
 `invalid_request`, `rpc_error` and `error`.
 
