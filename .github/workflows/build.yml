@@ -1,0 +1,35 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Unit tests + AARs
+        run: ./gradlew --no-daemon :plugin:testDebugUnitTest :plugin:assembleDebug :plugin:assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solana_mobile-addon
+          path: demo/addons/solana_mobile
+
+  mock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot 4.7
+        run: |
+          curl -sL -o godot.zip https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_linux.x86_64.zip
+          unzip -q godot.zip && mv Godot_v4.7-stable_linux.x86_64 godot
+      - name: Client check (mock wallet)
+        run: |
+          ./godot --headless --editor --quit --path demo
+          ./godot --headless --path demo --audio-driver Dummy --script tools/client_check.gd
