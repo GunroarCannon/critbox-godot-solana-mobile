@@ -1,0 +1,26 @@
+// Optional Maven Central mirror, for networks Central refuses (pass
+// -PmavenCentralMirror=https://maven-central.storage-download.googleapis.com/maven2/
+// or set it in ~/.gradle/gradle.properties). CI uses Central directly.
+pluginManagement {
+    def mirror = providers.gradleProperty("mavenCentralMirror").getOrNull()
+    repositories {
+        if (mirror) maven { url mirror }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+def centralMirror = providers.gradleProperty("mavenCentralMirror").getOrNull()
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        if (centralMirror) maven { url centralMirror }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "critbox-godot-solana-mobile"
+include ":plugin"

@@ -1,0 +1,55 @@
+plugins {
+    id "com.android.library"
+    id "org.jetbrains.kotlin.android"
+}
+
+def pluginName = "solana_mobile"
+def addonBin = "../demo/addons/solana_mobile/bin"
+
+android {
+    namespace "com.critbox.solanamobile"
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 24
+        consumerProguardFiles "consumer-rules.pro"
+        manifestPlaceholders = [godotPluginName: "SolanaMobile"]
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+// Keep in step with demo/addons/solana_mobile/solana_mobile_editor.gd (DEPENDENCIES):
+// a Godot export resolves these from Maven, the AAR does not carry them.
+dependencies {
+    compileOnly "org.godotengine:godot:4.7.0.stable"
+    implementation "com.solanamobile:mobile-wallet-adapter-clientlib-ktx:2.0.8"
+    implementation "androidx.activity:activity-ktx:1.10.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+
+    testImplementation "junit:junit:4.13.2"
+}
+
+// Copy the built AARs into the demo addon so the Godot export picks them up.
+["Debug", "Release"].each { variant ->
+    def lower = variant.toLowerCase()
+    def copyTask = tasks.register("copy${variant}AarToAddon", Copy) {
+        from(layout.buildDirectory.dir("outputs/aar")) {
+            include "plugin-${lower}.aar"
+        }
+        into("${addonBin}/${lower}")
+        rename { "${pluginName}-${lower}.aar" }
+    }
+    afterEvaluate {
+        tasks.named("assemble${variant}").configure { finalizedBy(copyTask) }
+    }
+}

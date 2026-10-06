@@ -1,0 +1,20 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+
+# Godot
+demo/.godot/
+demo/android/
+demo/export/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# Built AARs are release artifacts (attached to GitHub releases), not source
+demo/addons/solana_mobile/bin/

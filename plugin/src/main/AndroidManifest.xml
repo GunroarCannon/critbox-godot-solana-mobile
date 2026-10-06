@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android 11+ package visibility: without this the wallet apps are invisible
+         and every connect reports "no wallet". -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="solana-wallet" />
+        </intent>
+    </queries>
+
+    <application>
+        <!-- Godot v2 plugin registration: the singleton name is "SolanaMobile". -->
+        <meta-data
+            android:name="org.godotengine.plugin.v2.${godotPluginName}"
+            android:value="com.critbox.solanamobile.SolanaMobilePlugin" />
+
+        <!-- Invisible host for one MWA session. Handles its own config changes so a
+             rotation mid-wallet doesn't tear the session down. -->
+        <activity
+            android:name="com.critbox.solanamobile.MwaBridgeActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|density|smallestScreenSize|layoutDirection|locale|fontScale"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="false"
+            android:theme="@style/SolanaMobileBridgeTheme" />
+    </application>
+</manifest>
