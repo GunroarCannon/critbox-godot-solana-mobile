@@ -64,6 +64,7 @@ object MwaResults {
                 is TimeoutException -> return Outcome.failure("timeout", cur.message ?: "The wallet took too long")
                 is CancellationException, is InterruptedException ->
                     return Outcome.failure("cancelled", cur.message ?: "Cancelled")
+                is RpcException -> return Outcome.failure("rpc_error", cur.message ?: "RPC call failed")
                 is LocalAssociationScenario.ConnectionFailedException ->
                     return Outcome.failure("connection_failed", cur.message ?: "Could not reach the wallet")
             }

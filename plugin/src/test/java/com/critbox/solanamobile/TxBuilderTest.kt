@@ -53,7 +53,7 @@ class TxBuilderTest {
                 Triple(skr, false, false),
                 Triple("4iWxVkeBFEpy1mWmixC4P4iFss52XaKzJB29CXXqhZpJ", false, true),
                 Triple(payer, true, false)), "0c404b4c000000000006"),
-            Triple("MemoSq4gqABAXKb96qnH8TzdLX1ki1BvNXMwCuXp6fX", listOf(Triple(payer, true, false)), "6f726465723a616263"),
+            Triple("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", listOf(Triple(payer, true, false)), "6f726465723a616263"),
         )
         assertEquals(expected.size, ixs.size)
         expected.zip(ixs).forEach { (want, got) ->

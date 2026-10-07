@@ -18,7 +18,7 @@ object TxBuilder {
     const val TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
     const val TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
     const val ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-    const val MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TzdLX1ki1BvNXMwCuXp6fX"
+    const val MEMO_PROGRAM = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 
     /** One transfer. [mint] empty = SOL in lamports; otherwise token base units. */
     data class Transfer(

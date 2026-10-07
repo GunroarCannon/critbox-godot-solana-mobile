@@ -55,7 +55,7 @@ reconnects without asking for approval again.
 | `await sign_messages(["text" or PackedByteArray, …])` | `signatures` (base64) |
 | `await sign_transactions([tx_b64, …])` | `signed_transactions` (base64) |
 | `await sign_and_send([tx_b64, …])` | `signatures` (base58) |
-| `await transfer(to, amount, mint := "", decimals := 0, memo := "")` | blockhash + build + sign and send in one call |
+| `await transfer(to, amount, mint := "", decimals := 0, memo := "")` | build + sign and send in one wallet session; the blockhash is refreshed after the wallet opens where Android allows it (it only lives ~36 s on devnet, ~60 s on mainnet) |
 | `build_transfer({to, amount, blockhash, mint?, decimals?, memo?, create_ata?, token_program?})` | `tx` (base64, unsigned) |
 | `await capabilities()` | `capabilities` |
 | `await disconnect_wallet()` / `forget()` | session revoked / cleared locally |

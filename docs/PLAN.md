@@ -79,6 +79,7 @@ GDScript game
 | `cancel()` | — | Fails the request in flight with `cancelled` |
 | `is_wallet_installed()` | `bool` | Resolves the `solana-wallet:` intent (needs `<queries>`, shipped in the AAR manifest) |
 | `device_info()` | `String` JSON | `manufacturer`, `model`, `solana_mobile`, `seeker`, `seed_vault` |
+| `request("transfer", {transfer, rpc_url})` | id | Builds, signs and sends in one MWA session. A blockhash lives 150 blocks (measured ~36 s on devnet at ~240 ms/slot), and a slow chooser + wallet start-up used it up (`BlockhashNotFound`), so it is refreshed **inside** the session. Android 16 blocks a background app's network (`blocked=APP_BACKGROUND`) while the wallet is in front, so GDScript also prefetches one (`blockhash`, `slot`) as the fallback. Passes `minContextSlot` + `confirmed` to the wallet. RPC failure → `rpc_error` |
 | `build_transfer(json)` | `String` JSON | `{tx}` base64 unsigned legacy tx, or `{error}`. SOL, or SPL with `mint`, `decimals`, `token_program`, `create_ata`, `memo`, `blockhash` |
 
 Bytes always cross as **base64 inside JSON**, which keeps the JNI surface to

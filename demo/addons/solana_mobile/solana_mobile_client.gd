@@ -163,24 +163,30 @@ func build_transfer(params: Dictionary) -> Dictionary:
 	return {"ok": true, "tx": parsed["tx"]}
 
 
-## Fetch a blockhash, build, then sign and send: one call to pay [param amount]
-## (base units) of [param mint] (empty = SOL) to [param to].
+## Build, sign and send in one wallet session: pay [param amount] (base units)
+## of [param mint] (empty = SOL) to [param to]. A blockhash only lives ~36 s on
+## devnet, so the native side refreshes it once the wallet has opened; where
+## Android cuts the app's network behind the wallet (Android 16) it uses the one
+## fetched here, just before the wallet opens.
 func transfer(to: String, amount: Variant, mint := "", decimals := 0, memo := "",
 		token_program := TOKEN_PROGRAM) -> Dictionary:
 	if public_key == "":
 		var c := await connect_wallet()
 		if not c.ok:
 			return c
-	var blockhash := await latest_blockhash()
-	if blockhash == "":
-		return _fail("rpc_error", "Could not fetch a recent blockhash from " + rpc_url)
-	var built := build_transfer({
-		"to": to, "amount": amount, "blockhash": blockhash, "mint": mint,
+	var spec := {
+		"payer": public_key, "to": to, "amount": str(amount), "mint": mint,
 		"decimals": decimals, "memo": memo, "token_program": token_program,
-	})
-	if not built.ok:
-		return built
-	return await sign_and_send([built.tx])
+	}
+	# Check the fields here; the native side would only find out mid-session.
+	var check := build_transfer(spec.merged({"blockhash": "11111111111111111111111111111111"}))
+	if not check.ok:
+		return check
+	var latest: Variant = await rpc("getLatestBlockhash", [{"commitment": "confirmed"}])
+	if latest is Dictionary:
+		spec["blockhash"] = latest["value"]["blockhash"]
+		spec["slot"] = int(latest["context"]["slot"])
+	return await _request("transfer", {"transfer": spec, "rpc_url": rpc_url})
 
 
 ## The associated token account of [param owner] for [param mint].

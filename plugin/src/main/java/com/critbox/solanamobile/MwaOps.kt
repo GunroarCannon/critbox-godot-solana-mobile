@@ -1,9 +1,11 @@
 package com.critbox.solanamobile
 
 import android.net.Uri
+import android.util.Log
 import com.solana.mobilewalletadapter.clientlib.ConnectionIdentity
 import com.solana.mobilewalletadapter.clientlib.MobileWalletAdapter
 import com.solana.mobilewalletadapter.clientlib.Solana
+import com.solana.mobilewalletadapter.clientlib.TransactionParams
 import com.solana.mobilewalletadapter.common.signin.SignInWithSolana
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +24,7 @@ data class DappConfig(
  * `auth_token` when given (no approval prompt if the wallet still trusts it).
  */
 object MwaOps {
+    private const val TAG = "SolanaMobile"
     private var cached: Pair<DappConfig, MobileWalletAdapter>? = null
 
     /**
@@ -65,6 +68,7 @@ object MwaOps {
             "sign_messages" -> signMessages(config, token, payloads(params, "messages"))
             "sign_transactions" -> signTransactions(config, token, payloads(params, "transactions"))
             "sign_and_send" -> signAndSend(config, token, payloads(params, "transactions"))
+            "transfer" -> transfer(config, token, params.getJSONObject("transfer"), params.getString("rpc_url"))
             else -> throw IllegalArgumentException("Unknown op '$op'")
         }
     }
@@ -109,6 +113,51 @@ object MwaOps {
     fun signTransactions(config: DappConfig, token: String, txs: Array<ByteArray>): MwaOp = { sender ->
         MwaResults.from(adapter(config, token).transact(sender, null) { signTransactions(txs) }) { res, json ->
             json.put("signed_transactions", JSONArray(res.signedPayloads.map(MwaResults::b64)))
+        }
+    }
+
+    /**
+     * A transfer from build-transfer JSON (`to`, `amount`, `mint`, ...; `payer`
+     * and `blockhash` may be left out). Shared by `build_transfer` and [transfer].
+     */
+    fun transferFrom(o: JSONObject, payer: String = o.optString("payer", ""), blockhash: String = o.optString("blockhash", "")) =
+        TxBuilder.Transfer(
+            payer = payer,
+            to = o.getString("to"),
+            amount = o.get("amount").toString().toULong(),
+            blockhash = blockhash,
+            mint = o.optString("mint", ""),
+            decimals = o.optInt("decimals", 0),
+            tokenProgram = o.optString("token_program", TxBuilder.TOKEN_PROGRAM).ifEmpty { TxBuilder.TOKEN_PROGRAM },
+            createAta = o.optBoolean("create_ata", true),
+            memo = o.optString("memo", ""),
+        )
+
+    /**
+     * Build, sign and send a transfer in one session. The blockhash is refreshed
+     * once the wallet is connected, so the chooser and the wallet's start-up don't
+     * eat into its ~36 s (devnet) life. Android 16 blocks a background app's
+     * network, so if that refresh fails the one fetched before the wallet opened
+     * (`blockhash` + `slot` in [spec]) is used. The payer defaults to the
+     * authorised account.
+     */
+    fun transfer(config: DappConfig, token: String, spec: JSONObject, rpcUrl: String): MwaOp = { sender ->
+        val prefetched = spec.optString("blockhash", "").takeIf { it.isNotEmpty() }
+            ?.let { Rpc.Blockhash(it, spec.optLong("slot", 0L)) }
+        MwaResults.from(adapter(config, token).transact(sender, null) { auth ->
+            val latest = try {
+                Rpc.latestBlockhash(rpcUrl, if (prefetched != null) 1 else 3).also { Log.i(TAG, "Blockhash refreshed in session") }
+            } catch (e: RpcException) {
+                Log.i(TAG, "In-session blockhash refresh failed (${e.message}); using the prefetched one")
+                prefetched ?: throw e
+            }
+            val payer = spec.optString("payer", "").ifEmpty { Base58.encode(auth.accounts.first().publicKey) }
+            val tx = TxBuilder.build(transferFrom(spec, payer, latest.blockhash))
+            // Min context slot: the wallet's RPC must have seen our blockhash before it simulates.
+            val minSlot = latest.slot.takeIf { it in 1..Int.MAX_VALUE.toLong() }?.toInt()
+            signAndSendTransactions(arrayOf(tx), TransactionParams(minSlot, "confirmed", null, null, null))
+        }) { res, json ->
+            json.put("signatures", JSONArray(res.signatures.map(Base58::encode)))
         }
     }
 

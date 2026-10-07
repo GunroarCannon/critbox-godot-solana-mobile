@@ -40,6 +40,7 @@ class SolanaMobilePlugin(godot: Godot) : GodotPlugin(godot) {
         // Outcomes land on the UI thread; signals go out on Godot's thread.
         MwaBridge.setListener { id, outcome ->
             if (!outcome.ok) Log.i(TAG, "request $id failed: ${outcome.code} ${outcome.message}")
+            activity?.let { MwaKeepAliveService.release(it.applicationContext) }
             runOnRenderThread {
                 if (outcome.ok) {
                     emitSignal(succeeded.name, id, outcome.json)
@@ -94,6 +95,8 @@ class SolanaMobilePlugin(godot: Godot) : GodotPlugin(godot) {
         }
         main.post {
             try {
+                // Keeps the game's network and process while the wallet is in front.
+                MwaKeepAliveService.hold(host.applicationContext)
                 host.startActivity(Intent(host, MwaBridgeActivity::class.java).putExtra(MwaBridgeActivity.EXTRA_ID, id))
             } catch (e: Exception) {
                 MwaBridge.complete(id, Outcome.failure("error", "Could not open the wallet bridge: ${e.message}"))
@@ -164,17 +167,7 @@ class SolanaMobilePlugin(godot: Godot) : GodotPlugin(godot) {
     @UsedByGodot
     fun build_transfer(params: String): String = try {
         val o = JSONObject(params)
-        val bytes = TxBuilder.build(TxBuilder.Transfer(
-            payer = o.getString("payer"),
-            to = o.getString("to"),
-            amount = o.get("amount").toString().toULong(),
-            blockhash = o.getString("blockhash"),
-            mint = o.optString("mint", ""),
-            decimals = o.optInt("decimals", 0),
-            tokenProgram = o.optString("token_program", TxBuilder.TOKEN_PROGRAM).ifEmpty { TxBuilder.TOKEN_PROGRAM },
-            createAta = o.optBoolean("create_ata", true),
-            memo = o.optString("memo", ""),
-        ))
+        val bytes = TxBuilder.build(MwaOps.transferFrom(o))
         JSONObject().put("tx", MwaResults.b64(bytes)).toString()
     } catch (e: Exception) {
         JSONObject().put("error", e.message ?: e.javaClass.simpleName).toString()

@@ -65,8 +65,20 @@ func build_transfer(params: String) -> String:
 	var p: Variant = JSON.parse_string(params)
 	if not (p is Dictionary) or not p.has("to") or not p.has("amount"):
 		return JSON.stringify({"error": "payer, to, amount and blockhash are required"})
+	if not _is_address(str(p["to"])):
+		return JSON.stringify({"error": "'to' is not a base58 public key"})
 	# Not a real transaction: a recognisable stand-in the mock will "sign".
 	return JSON.stringify({"tx": Marshalls.utf8_to_base64("mock-tx:" + JSON.stringify(p))})
+
+
+## Shaped like a base58 public key (32-44 chars from the base58 alphabet).
+func _is_address(s: String) -> bool:
+	if s.length() < 32 or s.length() > 44:
+		return false
+	for c in s:
+		if not c in "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz":
+			return false
+	return true
 
 
 func token_account(owner: String, mint: String, _token_program: String) -> String:
@@ -138,6 +150,12 @@ func _answer(id: int, op: String, p: Dictionary) -> void:
 			for t in p.get("transactions", []):
 				sent.append("MockSig" + str(t).sha256_text())
 			out["signatures"] = sent
+		"transfer":
+			var spec: Variant = p.get("transfer")
+			if not (spec is Dictionary) or not spec.has("to") or str(p.get("rpc_url", "")) == "":
+				_fail(id, "invalid_payloads", "Mock wallet: transfer needs 'to' and an rpc_url")
+				return
+			out["signatures"] = ["MockSig" + JSON.stringify(spec).sha256_text()]
 		_:
 			_fail(id, "invalid_request", "Unknown op '%s'" % op)
 			return

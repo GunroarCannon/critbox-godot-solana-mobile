@@ -39,6 +39,12 @@ func _run() -> void:
 
 	r = await w.sign_and_send([built.tx])
 	_expect(r.ok and r.signatures.size() == 1, "sign_and_send returns a signature")
+	# A dead local port: the blockhash prefetch fails at once and the check stays offline.
+	w.rpc_url = "http://127.0.0.1:9"
+	r = await w.transfer(w.public_key, 1000, "", 0, "memo")
+	_expect(r.ok and r.signatures.size() == 1, "transfer sends in one session")
+	r = await w.transfer("not-a-key", 1000)
+	_expect(not r.ok and r.code == "invalid_request", "transfer rejects a bad recipient before the wallet opens")
 
 	r = await w.capabilities()
 	_expect(r.ok and r.capabilities.has("max_transactions"), "capabilities")
