@@ -201,14 +201,17 @@ func rpc(method: String, params: Array = []) -> Variant:
 	await tree.process_frame
 	var body := JSON.stringify({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
 	if http.request(rpc_url, ["Content-Type: application/json"], HTTPClient.METHOD_POST, body) != OK:
+		push_warning("SolanaMobile rpc %s could not start (%s)" % [method, rpc_url])
 		http.queue_free()
 		return null
 	var res: Array = await http.request_completed
 	http.queue_free()
 	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
+		push_warning("SolanaMobile rpc %s failed: result %d, HTTP %d (%s)" % [method, res[0], res[1], rpc_url])
 		return null
 	var parsed: Variant = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
 	if not (parsed is Dictionary) or parsed.has("error"):
+		push_warning("SolanaMobile rpc %s error: %s" % [method, parsed.get("error") if parsed is Dictionary else "bad JSON"])
 		return null
 	return parsed.get("result")
 
