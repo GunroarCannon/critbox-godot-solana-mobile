@@ -4,6 +4,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +61,7 @@ class MwaBridgeActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         leftForWallet = true
+        MwaOps.reconnecting = false
     }
 
     /**
@@ -71,6 +73,8 @@ class MwaBridgeActivity : ComponentActivity() {
         super.onResume()
         if (!leftForWallet) return
         window.decorView.postDelayed({
+            // The wallet is open again (a refused session being retried), or about to be.
+            if (MwaOps.reconnecting || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@postDelayed
             if (!isFinishing && MwaBridge.inFlight() == requestId) {
                 MwaBridge.complete(requestId, Outcome.failure("cancelled", "Left the wallet without answering"))
                 finishQuietly()

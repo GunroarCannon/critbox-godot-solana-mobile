@@ -2,11 +2,13 @@ package com.critbox.solanamobile
 
 import android.net.Uri
 import android.util.Log
+import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import com.solana.mobilewalletadapter.clientlib.ConnectionIdentity
 import com.solana.mobilewalletadapter.clientlib.MobileWalletAdapter
 import com.solana.mobilewalletadapter.clientlib.Solana
 import com.solana.mobilewalletadapter.clientlib.TransactionParams
 import com.solana.mobilewalletadapter.common.signin.SignInWithSolana
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,7 +27,12 @@ data class DappConfig(
  */
 object MwaOps {
     private const val TAG = "SolanaMobile"
+    private const val RETRY_DELAY_MS = 1500L
     private var cached: Pair<DappConfig, MobileWalletAdapter>? = null
+
+    /** Set while a request is being retried and the wallet is about to open again; see [build]. */
+    @Volatile
+    var reconnecting = false
 
     /**
      * One adapter per config, kept between requests: it remembers the wallet's
@@ -59,8 +66,49 @@ object MwaOps {
         return Array(arr.length()) { MwaResults.unb64(arr.getString(it)) }
     }
 
+    /**
+     * The op for [op], retried once in the same request when the wallet was slow
+     * or refused the saved session:
+     * - `connection_failed`: the wallet took longer than MWA's fixed ~30 s to open
+     *   its socket (a cold start on a slow phone, or an unlock screen). It is open
+     *   by now, so a second association connects at once.
+     * - `unauthorized` with a saved `auth_token`: Phantom declines every reauthorize
+     *   from a dApp whose identity URI doesn't verify it through Digital Asset Links
+     *   (`/.well-known/assetlinks.json`), yet still accepts a fresh authorize.
+     */
     fun build(op: String, config: DappConfig, params: JSONObject): MwaOp {
         val token = params.optString("auth_token", "")
+        return { sender ->
+            var used = token
+            var outcome = build(op, config, params, used)(sender)
+            if (outcome.code == "connection_failed") {
+                Log.i(TAG, "The wallet was slow to answer; asking again")
+                outcome = retry(op, config, params, used, sender)
+            }
+            if (outcome.code == "unauthorized" && used.isNotEmpty() && op != "deauthorize") {
+                Log.i(TAG, "The wallet refused the saved session; connecting afresh")
+                used = ""
+                outcome = retry(op, config, params, used, sender)
+            }
+            outcome
+        }
+    }
+
+    private suspend fun retry(op: String, config: DappConfig, params: JSONObject, token: String,
+                              sender: ActivityResultSender): Outcome {
+        reconnecting = true
+        try {
+            // Let the wallet finish closing its last screen first: Phantom holds an
+            // association that arrives while it is still closing until it is next
+            // brought forward, by which time MWA's ~30 s connect window is gone.
+            delay(RETRY_DELAY_MS)
+            return build(op, config, params, token)(sender)
+        } finally {
+            reconnecting = false
+        }
+    }
+
+    private fun build(op: String, config: DappConfig, params: JSONObject, token: String): MwaOp {
         return when (op) {
             "authorize" -> authorize(config, token, params.optJSONObject("sign_in"))
             "deauthorize" -> deauthorize(config, token)
