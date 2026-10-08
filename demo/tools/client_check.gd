@@ -43,6 +43,12 @@ func _run() -> void:
 	w.rpc_url = "http://127.0.0.1:9"
 	r = await w.transfer(w.public_key, 1000, "", 0, "memo")
 	_expect(r.ok and r.signatures.size() == 1, "transfer sends in one session")
+	r = await w.confirm(r.signatures[0])
+	_expect(r.ok and r.status == "confirmed", "confirm reports a landed transaction")
+	for code in ["tx_failed", "not_confirmed"]:
+		w.mock.next_confirm_error = code
+		r = await w.confirm("MockSig")
+		_expect(not r.ok and r.code == code, "confirm failure '%s' reaches the caller" % code)
 	r = await w.transfer("not-a-key", 1000)
 	_expect(not r.ok and r.code == "invalid_request", "transfer rejects a bad recipient before the wallet opens")
 

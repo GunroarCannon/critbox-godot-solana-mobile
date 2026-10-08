@@ -13,6 +13,8 @@ signal request_failed(id: int, code: String, message: String)
 var delay_sec := 0.25
 ## One-shot: the next request fails with this code, then it clears.
 var next_error := ""
+## One-shot: the next confirm() fails with this code ("tx_failed", "not_confirmed").
+var next_confirm_error := ""
 var wallet_installed := true
 ## Base58 of Keypair.fromSeed(32 × 7): a valid key, never a real wallet.
 var public_key := "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB"
@@ -79,6 +81,15 @@ func _is_address(s: String) -> bool:
 		if not c in "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz":
 			return false
 	return true
+
+
+## Mock signatures never reach a chain: every one "confirms" unless scripted not to.
+func confirm(_signature: String) -> Dictionary:
+	if next_confirm_error != "":
+		var code := next_confirm_error
+		next_confirm_error = ""
+		return {"ok": false, "code": code, "message": "Mock wallet: " + code}
+	return {"ok": true, "slot": 1, "status": "confirmed"}
 
 
 func token_account(owner: String, mint: String, _token_program: String) -> String:

@@ -39,8 +39,12 @@ print("hello ", wallet.public_key)
 # Pay 5 SKR (6 decimals) with a memo your server can match:
 const SKR := "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3"
 var paid := await wallet.transfer(TREASURY, 5_000_000, SKR, 6, "order:42")
-if paid.ok:
-	print("https://explorer.solana.com/tx/", paid.signatures[0])
+if not paid.ok:
+	return
+# "ok" means the wallet submitted it. Confirm before granting anything:
+var landed := await wallet.confirm(paid.signatures[0])
+if landed.ok:
+	print("paid in slot ", landed.slot)
 ```
 
 Save `wallet.auth_token` and `wallet.public_key`. Restoring them on the next launch
@@ -56,6 +60,7 @@ reconnects without asking for approval again.
 | `await sign_transactions([tx_b64, …])` | `signed_transactions` (base64) |
 | `await sign_and_send([tx_b64, …])` | `signatures` (base58) |
 | `await transfer(to, amount, mint := "", decimals := 0, memo := "")` | build + sign and send in one wallet session; the blockhash is refreshed after the wallet opens where Android allows it (it only lives ~36 s on devnet, ~60 s on mainnet) |
+| `await confirm(signature, timeout_sec := 45)` | `slot`, `status` once the transaction is `confirmed` on chain; fails with `tx_failed` (landed with an error, see `err`) or `not_confirmed` (not seen yet; it may still land, so check again later) |
 | `build_transfer({to, amount, blockhash, mint?, decimals?, memo?, create_ata?, token_program?})` | `tx` (base64, unsigned) |
 | `await capabilities()` | `capabilities` |
 | `await disconnect_wallet()` / `forget()` | session revoked / cleared locally |
@@ -67,9 +72,14 @@ Every awaited call returns `{ok: true, …}` or `{ok: false, code, message}`. Th
 `busy`, `cancelled`, `no_wallet`, `declined` (said no to this request), `unauthorized`
 (the saved session was revoked; the client forgets it), `not_submitted`, `timeout`,
 `connection_failed`, `cluster_not_supported`, `too_many_payloads`, `invalid_payloads`,
-`invalid_request`, `rpc_error` and `error`.
+`invalid_request`, `rpc_error` and `error`; `confirm()` adds `tx_failed` and `not_confirmed`.
 
-Off-device, `wallet.mock` is a `SolanaMobileMock`. Set `next_error`, `delay_sec`,
+**A wallet's `ok` from `sign_and_send` or `transfer` means submitted, not landed.** A
+transaction can still fail or be dropped (no SOL for the fee, a lost broadcast), so
+always `await confirm(sig)` before giving the player what they paid for. For real
+money, verify the payment on your server too: the client can be tampered with.
+
+Off-device, `wallet.mock` is a `SolanaMobileMock`. Set `next_error`, `next_confirm_error`, `delay_sec`,
 `wallet_installed` or `device` to test each path.
 
 ## How it works

@@ -15,7 +15,7 @@ extends RefCounted
 ## [/codeblock]
 ## Failure codes: busy, cancelled, no_wallet, declined, unauthorized, not_submitted, timeout,
 ## connection_failed, cluster_not_supported, too_many_payloads, invalid_payloads,
-## invalid_request, rpc_error, error.
+## invalid_request, rpc_error, error. [method confirm] adds tx_failed and not_confirmed.
 
 ## Emitted whenever the connected account changes ("" after a disconnect).
 signal account_changed(public_key: String)
@@ -187,6 +187,35 @@ func transfer(to: String, amount: Variant, mint := "", decimals := 0, memo := ""
 		spec["blockhash"] = latest["value"]["blockhash"]
 		spec["slot"] = int(latest["context"]["slot"])
 	return await _request("transfer", {"transfer": spec, "rpc_url": rpc_url})
+
+
+## Waits until [param signature] (base58) lands on chain at [code]confirmed[/code]
+## or better. A wallet's "ok" from [method sign_and_send] or [method transfer] only
+## means it was submitted: a payment can still fail or never land (no SOL for the
+## fee, a dropped broadcast), so confirm before granting anything for it.
+## Returns [code]{ok, slot, status}[/code], or fails with [code]tx_failed[/code]
+## (landed but errored; [code]err[/code] holds why) or [code]not_confirmed[/code]
+## (not seen within [param timeout_sec]; it may still land, so ask again later
+## rather than treating it as failed).
+func confirm(signature: String, timeout_sec := 45.0) -> Dictionary:
+	if mock != null:
+		return mock.confirm(signature)
+	var tree := Engine.get_main_loop() as SceneTree
+	var deadline := Time.get_ticks_msec() + int(timeout_sec * 1000.0)
+	while true:
+		var r: Variant = await rpc("getSignatureStatuses", [[signature], {"searchTransactionHistory": true}])
+		var status: Variant = r["value"][0] if r is Dictionary and r["value"] is Array and r["value"].size() > 0 else null
+		if status is Dictionary:
+			if status.get("err") != null:
+				var failed := _fail("tx_failed", "Transaction failed on chain: " + JSON.stringify(status["err"]))
+				failed["err"] = status["err"]
+				return failed
+			if status.get("confirmationStatus") in ["confirmed", "finalized"]:
+				return {"ok": true, "slot": int(status.get("slot", 0)), "status": status["confirmationStatus"]}
+		if Time.get_ticks_msec() >= deadline or tree == null:
+			return _fail("not_confirmed", "Not confirmed after %d s" % int(timeout_sec))
+		await tree.create_timer(2.0, true, false, true).timeout
+	return {}
 
 
 ## The associated token account of [param owner] for [param mint].

@@ -12,7 +12,7 @@ var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	wallet = SolanaMobileClient.new("Solana Mobile Demo", "https://critbox.games", "favicon.ico", "devnet")
+	wallet = SolanaMobileClient.new("Solana Mobile Demo", "https://gunroarcannon.github.io", "favicon.ico", "devnet")
 	wallet.account_changed.connect(func(_k: String) -> void: _refresh_status())
 	_load_session()
 	_build_ui()
@@ -31,7 +31,7 @@ func _on_connect() -> void:
 
 
 func _on_sign_in() -> void:
-	var r := await wallet.sign_in("critbox.games", "Sign in to the Solana Mobile demo")
+	var r := await wallet.sign_in("gunroarcannon.github.io", "Sign in to the Solana Mobile demo")
 	_show(r, "Sign in")
 	if r.ok and r.has("sign_in"):
 		_say("  signed: " + Marshalls.base64_to_utf8(r.sign_in.signed_message).replace("\n", " ⏎ "))
@@ -66,7 +66,7 @@ func _on_send_sol() -> void:
 	# 0.001 SOL to yourself: a real, harmless signed transfer.
 	var r := await wallet.transfer(wallet.public_key, 1_000_000, "", 0, "godot-solana-mobile demo")
 	_show(r, "Send 0.001 SOL")
-	_explorer(r)
+	await _explorer(r)
 
 
 func _on_send_token() -> void:
@@ -82,7 +82,7 @@ func _on_send_token() -> void:
 	var program: String = info.value.owner
 	var r := await wallet.transfer(wallet.public_key, int(pow(10, decimals)), mint, decimals, "demo token send", program)
 	_show(r, "Send 1 token")
-	_explorer(r)
+	await _explorer(r)
 
 
 func _on_capabilities() -> void:
@@ -116,6 +116,12 @@ func _explorer(r: Dictionary) -> void:
 		var sig: String = r.signatures[0]
 		_say("  https://explorer.solana.com/tx/%s?cluster=devnet" % sig)
 		DisplayServer.clipboard_set(sig)
+		# The wallet's ok only means submitted; this is the on-chain answer.
+		var c := await wallet.confirm(sig)
+		if c.ok:
+			_say("  [color=lime]confirmed[/color] in slot %d" % c.slot)
+		else:
+			_say("  [color=red]not on chain[/color]: %s (%s)" % [c.code, c.message])
 
 
 func _say(line: String) -> void:
